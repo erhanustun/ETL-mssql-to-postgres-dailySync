@@ -1,0 +1,159 @@
+services:
+  
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    ports:
+      - "1025:1025" # SMTP portu (Airflow buraya gönderecek)
+      - "8025:8025" # Web UI portu (tarayıcıdan açılacak)
+
+  postgresql:
+    container_name: postgresql
+    image: postgres:13
+    env_file:
+      - .env 
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DBNAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-db:/var/lib/postgresql/data
+      - ./postgres_init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${PG_USER}"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  mssql:
+    container_name: mssql
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env 
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./mssql_init:/mssql_init
+      - ./mssql_host_data:/var/opt/mssql/data
+      - ./orders.csv:/opt/airflow/data/orders.csv
+    command: >
+      /bin/bash -c "
+        /opt/mssql/bin/sqlservr &
+        sleep 30 &&
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P '${DB_PASSWORD}' -i /mssql_init/mssql_init.sql &&
+        wait
+      "
+  airflow-webserver:
+    container_name: airflow-webserver
+    image: apache/airflow:2.7.3
+    restart: always
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      mssql:
+        condition: service_started
+    env_file:
+      - .env 
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@postgresql:5432/${PG_DBNAME}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__SCHEDULER__CATCHUP_BY_DEFAULT: "false"
+      CSV_FILE_PATH: "/opt/airflow/data/orders.csv" 
+      DB_DRIVER: ${DB_DRIVER}
+      DB_SERVER: "mssql" 
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      STAGING_TABLE_NAME: ${STAGING_TABLE_NAME}
+      TARGET_TABLE_NAME: ${TARGET_TABLE_NAME}
+      STAGING_LOAD_CHUNKSIZE: ${STAGING_LOAD_CHUNKSIZE}
+      UNIQUE_KEY_COLUMNS: ${UNIQUE_KEY_COLUMNS}
+      PG_DBNAME: ${PG_DBNAME}
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      PG_HOST: "postgresql" 
+      PG_PORT: ${PG_PORT}
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD}
+      _AIRFLOW_WWW_USER_FIRSTNAME: ${_AIRFLOW_WWW_USER_FIRSTNAME}
+      _AIRFLOW_WWW_USER_LASTNAME: ${_AIRFLOW_WWW_USER_LASTNAME}
+      _AIRFLOW_WWW_USER_EMAIL: ${_AIRFLOW_WWW_USER_EMAIL}
+      _AIRFLOW_WWW_USER_ROLE: ${_AIRFLOW_WWW_USER_ROLE}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./orders.csv:/opt/airflow/data/orders.csv
+      - ./shared:/opt/airflow/shared
+    ports:
+      - "8080:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health"]
+      interval: 20s        
+      timeout: 10s         
+      retries: 6           
+      start_period: 60s    
+
+  airflow-scheduler:
+    container_name: airflow-scheduler
+    image: apache/airflow:2.7.3
+    restart: always
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      mssql:
+        condition: service_started
+      airflow-webserver:
+        condition: service_healthy
+    env_file:
+      - .env 
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${PG_USER}:${PG_PASSWORD}@postgresql:5432/${PG_DBNAME}
+      AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__SCHEDULER__CATCHUP_BY_DEFAULT: "false"
+      CSV_FILE_PATH: "/opt/airflow/data/orders.csv" 
+      DB_DRIVER: ${DB_DRIVER}
+      DB_SERVER: "mssql" 
+      DB_DATABASE: ${DB_DATABASE}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      STAGING_TABLE_NAME: ${STAGING_TABLE_NAME}
+      TARGET_TABLE_NAME: ${TARGET_TABLE_NAME}
+      STAGING_LOAD_CHUNKSIZE: ${STAGING_LOAD_CHUNKSIZE}
+      UNIQUE_KEY_COLUMNS: ${UNIQUE_KEY_COLUMNS}
+      PG_DBNAME: ${PG_DBNAME}
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+      PG_HOST: "postgresql" 
+      PG_PORT: ${PG_PORT}
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./orders.csv:/opt/airflow/data/orders.csv
+      - ./shared:/opt/airflow/shared
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres-db:
+  mssql-data:
+  
