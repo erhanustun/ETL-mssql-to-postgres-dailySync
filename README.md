@@ -21,7 +21,7 @@ The pipeline follows an **ETL pattern**:
 ---
 
 ## Project Structure
-
+```bash
 .
 ├── dags/
 │ └── mssql_to_postgresql_orders_daily.py # Airflow DAG
@@ -33,7 +33,7 @@ The pipeline follows an **ETL pattern**:
 ├── .env # Environment variables
 ├── docker-compose.yaml # Docker Compose configuration
 └── README.md
-
+```
 
 ---
 
