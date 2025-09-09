@@ -66,7 +66,7 @@ The pipeline follows an **ETL pattern**:
    -- Check record count in MSSQL
    SELECT COUNT(*) FROM orders;
 
-✅ If counts match, synchronization was successful.
+   ✅ If counts match, synchronization was successful.
 
 🔮 Future Improvements
 
