@@ -40,7 +40,7 @@ The pipeline follows an **ETL pattern**:
 ## Getting Started
 1. **Clone the repository**
    ```bash
-   git clone (https://github.com/erhanustun/ETL-mssql-to-postgres-dailySync)
+   git clone [https://github.com/erhanustun/ETL-mssql-to-postgres-dailySync]
    ```
 2. Start services with Docker Compose
 
