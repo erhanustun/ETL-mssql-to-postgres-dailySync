@@ -48,32 +48,32 @@ The pipeline follows an **ETL pattern**:
 
 3. Access Airflow UI
 
-URL: http://localhost:8080
-
-Default user: airflow
-
-Password: airflow
+   URL: http://localhost:8080
+   
+   Default user: airflow
+   
+   Password: airflow
 
 4. Trigger the DAG
 
-From the Airflow UI, enable and trigger the orders_daily_sync DAG.
+   From the Airflow UI, enable and trigger the orders_daily_sync DAG.
 
 📊 Example Validation
 
--- Check record count in PostgreSQL
-SELECT COUNT(*) FROM orders;
-
--- Check record count in MSSQL
-SELECT COUNT(*) FROM orders;
+   -- Check record count in PostgreSQL
+   SELECT COUNT(*) FROM orders;
+   
+   -- Check record count in MSSQL
+   SELECT COUNT(*) FROM orders;
 
 ✅ If counts match, synchronization was successful.
 
 🔮 Future Improvements
 
-Store records with NULL OrderCreatedAt values in a separate table
-
-Add a dead_letter table for invalid/error rows
-
-Optimize for larger datasets with batch/chunk inserts
-
-Add CDC (Change Data Capture) support for near real-time sync
+   Store records with NULL OrderCreatedAt values in a separate table
+   
+   Add a dead_letter table for invalid/error rows
+   
+   Optimize for larger datasets with batch/chunk inserts
+   
+   Add CDC (Change Data Capture) support for near real-time sync
